@@ -15,6 +15,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useBorrowBookMutation } from "@/features/borrow/borrowApi";
+import { getErrorMessage } from "@/lib/extract-error";
 import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
@@ -22,6 +23,7 @@ import { CalendarIcon, Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router";
+import { toast } from "sonner";
 import { z } from "zod";
 import Error from "../shared/error";
 
@@ -54,11 +56,26 @@ export default function Borrow() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    const formattedValues = {
-      ...values,
-      dueDate: values.dueDate.toISOString(), // This will give you "2025-07-18T00:00:00.000Z"
-    };
-    borrowBook(formattedValues);
+    try {
+      const formattedValues = {
+        ...values,
+        dueDate: values.dueDate.toISOString(), // This will give you "2025-07-18T00:00:00.000Z"
+      };
+      await borrowBook(formattedValues).unwrap();
+      toast("Book borrowed successfully!", {
+        description: `"${
+          values.book
+        }" has been borrowed. Please return it by ${format(
+          values.dueDate,
+          "PPP"
+        )}.`,
+      });
+    } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      toast.error("Failed to borrow book", {
+        description: errorMessage,
+      });
+    }
   }
 
   useEffect(() => {

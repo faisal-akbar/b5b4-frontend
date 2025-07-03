@@ -39,25 +39,21 @@ export interface IBorrowBookResponse {
   };
 }
 
-export const borrowApi = apiSlice
-  .enhanceEndpoints({
-    addTagTypes: ["BorrowSummary"],
-  })
-  .injectEndpoints({
-    endpoints: (builder) => ({
-      getBorrowedSummary: builder.query<IBorrowSummaryResponse, void>({
-        query: () => "/api/borrow",
-        providesTags: [{ type: "BorrowSummary" }],
-      }),
-      borrowBook: builder.mutation<IBorrowBookResponse, IBorrowBookRequest>({
-        query: (data) => ({
-          url: "/api/borrow",
-          method: "POST",
-          body: data,
-        }),
-        invalidatesTags: ["BorrowSummary"],
-      }),
+export const borrowApi = apiSlice.injectEndpoints({
+  endpoints: (builder) => ({
+    getBorrowedSummary: builder.query<IBorrowSummaryResponse, void>({
+      query: () => "/api/borrow",
+      providesTags: [{ type: "BorrowSummary" }],
     }),
-  });
+    borrowBook: builder.mutation<IBorrowBookResponse, IBorrowBookRequest>({
+      query: (data) => ({
+        url: "/api/borrow",
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: ["BorrowSummary", "Books"],
+    }),
+  }),
+});
 
 export const { useGetBorrowedSummaryQuery, useBorrowBookMutation } = borrowApi;

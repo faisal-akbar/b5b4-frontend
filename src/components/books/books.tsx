@@ -18,7 +18,7 @@ import {
   ChevronUpIcon,
   EllipsisIcon,
 } from "lucide-react";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import DeleteConfirmation from "@/components/shared/delete-confirmation";
 import { Badge } from "@/components/ui/badge";
@@ -60,6 +60,7 @@ import { getErrorMessage } from "@/lib/extract-error";
 import { cn } from "@/lib/utils";
 import type { IBooks } from "@/types/books-interface";
 import { useNavigate } from "react-router";
+import { toast } from "sonner";
 import DataAlert from "../shared/data-alert";
 import Error from "../shared/error";
 import Loading from "../shared/loader";
@@ -428,11 +429,27 @@ export default function Books() {
 
 function RowActions({ row }: { row: Row<IBooks> }) {
   const navigate = useNavigate();
-  const [deleteBook] = useDeleteBookMutation();
+  const [deleteBook, { isSuccess, isError, error }] = useDeleteBookMutation();
 
-  const handleDelete = (row: Row<IBooks>) => {
-    deleteBook(row.original._id);
+  const handleDelete = async (row: Row<IBooks>) => {
+    try {
+      await deleteBook(row.original._id).unwrap();
+      toast("Book deleted successfully!", {
+        description: `"${row.original.title}" has been removed from the library.`,
+      });
+    } catch (error) {
+      console.error("Failed to delete book:", error);
+    }
   };
+
+  useEffect(() => {
+    if (isError) {
+      const errorMessage = getErrorMessage(error);
+      toast("Failed to delete book", {
+        description: errorMessage,
+      });
+    }
+  }, [isError, error]);
 
   return (
     <DropdownMenu>

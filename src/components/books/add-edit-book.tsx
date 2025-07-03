@@ -22,12 +22,14 @@ import {
   useAddBookMutation,
   useEditBookMutation,
 } from "@/features/books/booksApi";
+import { getErrorMessage } from "@/lib/extract-error";
 import { GENRES } from "@/types/books-interface";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router";
+import { toast } from "sonner";
 import { z } from "zod";
 import Error from "../shared/error";
 import Loading from "../shared/loader";
@@ -164,25 +166,51 @@ export default function AddEditBook() {
     return changedFields;
   };
 
-  function onSubmit(values: BookFormData) {
-    // Add available field based on copies value
-    const valuesWithAvailable = {
-      ...values,
-      available: values.copies > 0,
-    };
+  async function onSubmit(values: BookFormData) {
+    try {
+      // Add available field based on copies value
+      const valuesWithAvailable = {
+        ...values,
+        available: values.copies > 0,
+      };
 
-    if (isEditing) {
-      const changedFields = getChangedFields(values);
+      if (isEditing) {
+        const changedFields = getChangedFields(values);
 
-      // Only send request if there are changes
-      if (Object.keys(changedFields).length === 0) {
+        // Only send request if there are changes
+        if (Object.keys(changedFields).length === 0) {
+          toast.info("No changes detected", {
+            description: "No modifications were made to the book.",
+          });
+          navigate("/books");
+          return;
+        }
+
+        const result = await editBook({
+          id,
+          data: changedFields,
+        }).unwrap();
+
+        toast("Book updated successfully!", {
+          description: `"${values.title}" has been updated.`,
+        });
+
         navigate("/books");
-        return;
-      }
+      } else {
+        const result = await addBook(valuesWithAvailable).unwrap();
 
-      editBook({ id, data: changedFields });
-    } else {
-      addBook(valuesWithAvailable);
+        toast("Book added successfully!", {
+          description: `"${values.title}" has been added to the library.`,
+        });
+
+        navigate("/books");
+      }
+    } catch (error: any) {
+      const errorMessage = getErrorMessage(error);
+
+      toast(isEditing ? "Failed to update book" : "Failed to add book", {
+        description: errorMessage,
+      });
     }
   }
 
@@ -190,7 +218,7 @@ export default function AddEditBook() {
     if (isEditingSuccess || isAddingSuccess) {
       navigate("/");
     }
-  }, [isEditingSuccess, isAddingSuccess, navigate]);
+  }, [isEditingSuccess, isAddingSuccess, navigate, isEditing]);
 
   if (isLoadingData || isEditingLoading || isAddingLoading) {
     return <Loading />;
