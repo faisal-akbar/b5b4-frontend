@@ -1,6 +1,7 @@
 import {
   flexRender,
   getCoreRowModel,
+  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
@@ -70,7 +71,7 @@ const columns: ColumnDef<IBooks>[] = [
     cell: ({ row }) => <div className="text-left">{row.getValue("title")}</div>,
     size: 220,
     enableHiding: false,
-    enableSorting: true, // Enable sorting for this column
+    enableSorting: true,
   },
   {
     header: "Author",
@@ -79,21 +80,21 @@ const columns: ColumnDef<IBooks>[] = [
       <div className="text-left">{row.getValue("author")}</div>
     ),
     size: 200,
-    enableSorting: true, // Enable sorting for this column
+    enableSorting: true,
   },
   {
     header: "Genre",
     accessorKey: "genre",
     cell: ({ row }) => <div className="text-left">{row.getValue("genre")}</div>,
     size: 180,
-    enableSorting: true, // Enable sorting for this column
+    enableSorting: true,
   },
   {
     header: "ISBN",
     accessorKey: "isbn",
     cell: ({ row }) => <div className="text-left">{row.getValue("isbn")}</div>,
     size: 200,
-    enableSorting: false, // Disable sorting for ISBN
+    enableSorting: false,
   },
   {
     header: "Copies",
@@ -102,7 +103,7 @@ const columns: ColumnDef<IBooks>[] = [
       <div className="text-left">{row.getValue("copies")}</div>
     ),
     size: 160,
-    enableSorting: true, // Enable sorting for this column
+    enableSorting: true,
   },
   {
     header: "Availability",
@@ -122,7 +123,7 @@ const columns: ColumnDef<IBooks>[] = [
       </Badge>
     ),
     size: 100,
-    enableSorting: true, // Enable sorting for this column
+    enableSorting: true,
   },
   {
     id: "actions",
@@ -130,82 +131,47 @@ const columns: ColumnDef<IBooks>[] = [
     cell: ({ row }) => <RowActions row={row} />,
     size: 60,
     enableHiding: false,
-    enableSorting: false, // Disable sorting for actions column
+    enableSorting: false,
   },
 ];
 
 export default function Books() {
   const id = useId();
 
-  // State for pagination
+  // State for pagination (client-side)
   const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: 0, // 0-based for React Table
+    pageIndex: 0,
     pageSize: 10,
   });
 
-  // State for sorting
+  // State for sorting (client-side)
   const [sorting, setSorting] = useState<SortingState>([]);
 
-  // Convert sorting state to API format
-  const getSortingParams = () => {
-    // console.log("Current sorting state:", sorting);
-    if (sorting.length === 0) {
-      return {
-        sortBy: "title",
-        sortOrder: "asc",
-      };
-    }
+  // Fetch ALL books for client-side processing
+  const { data: booksResponse, isLoading, isError, error } = useGetBooksQuery(); // Remove pagination/sorting params
 
-    const sort = sorting[0]; // Only handle single column sorting for now
-    return {
-      sortBy: sort.id,
-      sortOrder: sort.desc ? "desc" : "asc",
-    };
-  };
-
-  const {
-    data: booksResponse,
-    isLoading,
-    isError,
-    error,
-  } = useGetBooksQuery({
-    page: pagination.pageIndex + 1, // Convert to 1-based for API
-    limit: pagination.pageSize,
-    ...getSortingParams(),
-  });
-
-  const books = Array.isArray(booksResponse?.data) ? booksResponse.data : [];
-  const paginationInfo = booksResponse?.pagination || {
-    currentPage: 1,
-    totalPages: 1,
-    totalBooks: 0,
-    limit: 10,
-    hasNextPage: false,
-    hasPrevPage: false,
-  };
+  // Extract all books from response
+  const allBooks = Array.isArray(booksResponse?.data) ? booksResponse.data : [];
 
   const table = useReactTable({
-    data: books,
+    data: allBooks, // Use all books data
     columns,
-    // Server-side pagination configuration
-    manualPagination: true,
-    pageCount: paginationInfo.totalPages,
-    rowCount: paginationInfo.totalBooks,
 
-    // Server-side sorting configuration
-    manualSorting: true,
+    // Client-side configuration
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(), // Enable client-side sorting
+    getPaginationRowModel: getPaginationRowModel(), // Enable client-side pagination
+
+    // Remove server-side configurations
+    // manualPagination: false, // Default is false for client-side
+    // manualSorting: false, // Default is false for client-side
+
+    // Sorting configuration
     enableSortingRemoval: true,
     enableMultiSort: false,
 
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-
     // Event handlers
-    onSortingChange: (updater) => {
-      setSorting(updater);
-      // Reset to first page when sorting changes
-      setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-    },
+    onSortingChange: setSorting,
     onPaginationChange: setPagination,
 
     state: {
@@ -215,17 +181,21 @@ export default function Books() {
   });
 
   let content = null;
+
   if (isLoading) {
     content = <Loading />;
   }
+
   if (!isLoading && isError) {
     const errorMessage = getErrorMessage(error);
     content = <Error message={errorMessage} />;
   }
-  if (!isLoading && !isError && books.length === 0) {
+
+  if (!isLoading && !isError && allBooks.length === 0) {
     content = <DataAlert message="No books found." />;
   }
-  if (!isLoading && !isError && books.length > 0) {
+
+  if (!isLoading && !isError && allBooks.length > 0) {
     content = (
       <>
         <div className="bg-background overflow-hidden rounded-md border">
@@ -374,18 +344,21 @@ export default function Books() {
               aria-live="polite"
             >
               <span className="text-foreground">
-                {paginationInfo.totalBooks === 0
+                {table.getFilteredRowModel().rows.length === 0
                   ? 0
-                  : (paginationInfo.currentPage - 1) * paginationInfo.limit + 1}
+                  : table.getState().pagination.pageIndex *
+                      table.getState().pagination.pageSize +
+                    1}
                 -
                 {Math.min(
-                  paginationInfo.currentPage * paginationInfo.limit,
-                  paginationInfo.totalBooks
+                  (table.getState().pagination.pageIndex + 1) *
+                    table.getState().pagination.pageSize,
+                  table.getFilteredRowModel().rows.length
                 )}
               </span>{" "}
               of{" "}
               <span className="text-foreground">
-                {paginationInfo.totalBooks}
+                {table.getFilteredRowModel().rows.length}
               </span>
             </p>
           </div>
@@ -400,7 +373,7 @@ export default function Books() {
                     variant="outline"
                     className="disabled:pointer-events-none disabled:opacity-50"
                     onClick={() => table.firstPage()}
-                    disabled={!paginationInfo.hasPrevPage || isLoading}
+                    disabled={!table.getCanPreviousPage() || isLoading}
                     aria-label="Go to first page"
                   >
                     <ChevronFirstIcon size={16} aria-hidden="true" />
@@ -412,7 +385,7 @@ export default function Books() {
                     variant="outline"
                     className="disabled:pointer-events-none disabled:opacity-50"
                     onClick={() => table.previousPage()}
-                    disabled={!paginationInfo.hasPrevPage || isLoading}
+                    disabled={!table.getCanPreviousPage() || isLoading}
                     aria-label="Go to previous page"
                   >
                     <ChevronLeftIcon size={16} aria-hidden="true" />
@@ -424,7 +397,7 @@ export default function Books() {
                     variant="outline"
                     className="disabled:pointer-events-none disabled:opacity-50"
                     onClick={() => table.nextPage()}
-                    disabled={!paginationInfo.hasNextPage || isLoading}
+                    disabled={!table.getCanNextPage() || isLoading}
                     aria-label="Go to next page"
                   >
                     <ChevronRightIcon size={16} aria-hidden="true" />
@@ -436,7 +409,7 @@ export default function Books() {
                     variant="outline"
                     className="disabled:pointer-events-none disabled:opacity-50"
                     onClick={() => table.lastPage()}
-                    disabled={!paginationInfo.hasNextPage || isLoading}
+                    disabled={!table.getCanNextPage() || isLoading}
                     aria-label="Go to last page"
                   >
                     <ChevronLastIcon size={16} aria-hidden="true" />
@@ -460,6 +433,7 @@ function RowActions({ row }: { row: Row<IBooks> }) {
   const handleDelete = (row: Row<IBooks>) => {
     deleteBook(row.original._id);
   };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

@@ -27,26 +27,15 @@ export interface IBookResponseData {
   data: IBooks;
   success: boolean;
   message: string;
-  pagination?: {
-    currentPage: number;
-    totalPages: number;
-    totalBooks: number;
-    limit: number;
-    hasNextPage: boolean;
-    hasPrevPage: boolean;
-  };
 }
 
 export const booksApi = apiSlice
   .enhanceEndpoints({ addTagTypes: ["Books"] })
   .injectEndpoints({
     endpoints: (builder) => ({
-      getBooks: builder.query<
-        IBookResponseData,
-        { page: number; limit: number; sortBy: string; sortOrder: string }
-      >({
-        query: ({ page, limit, sortBy, sortOrder }) => {
-          return `/api/books?page=${page}&limit=${limit}&sortBy=${sortBy}&sort=${sortOrder}`;
+      getBooks: builder.query<IBookResponseData, void>({
+        query: () => {
+          return `/api/books`;
         },
         providesTags: ["Books"],
       }),
@@ -81,24 +70,12 @@ export const booksApi = apiSlice
           url: `/api/books/${bookId}`,
           method: "DELETE",
         }),
-        async onQueryStarted(bookId, { dispatch, queryFulfilled, getState }) {
-          // You may want to get the latest query args from the state or hardcode defaults
-          // Here is an example using default values:
-          const defaultQueryArgs = {
-            page: 1,
-            limit: 10,
-            sortBy: "title",
-            sortOrder: "asc",
-          };
+        // Optimistic update to remove book from cache
+        async onQueryStarted(arg, { dispatch, queryFulfilled }) {
           const patchResult = dispatch(
-            booksApi.util.updateQueryData(
-              "getBooks",
-              defaultQueryArgs,
-              (draft) => {
-                console.log("Deleting book with ID:", bookId);
-                draft.data = draft.data.filter((book) => book._id != bookId);
-              }
-            )
+            booksApi.util.updateQueryData("getBooks", undefined, (draft) => {
+              draft.data = draft.data.filter((book) => book._id != arg);
+            })
           );
 
           try {
@@ -107,10 +84,6 @@ export const booksApi = apiSlice
             patchResult.undo();
           }
         },
-        // invalidatesTags: (result, error, id) => [
-        //   { type: "Books", id },
-        //   "Books",
-        // ],
       }),
     }),
   });
