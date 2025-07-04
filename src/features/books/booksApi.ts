@@ -95,7 +95,7 @@ export const booksApi = apiSlice.injectEndpoints({
         // Optimistically remove the book from the cache
         const patchResult = dispatch(
           booksApi.util.updateQueryData("getBooks", queryArgs, (draft) => {
-            console.log("Optimistically removing book with id:", id);
+            // console.log("Optimistically removing book with id:", id);
             draft.data = draft.data.filter((book) => book._id !== id);
           })
         );
@@ -106,11 +106,11 @@ export const booksApi = apiSlice.injectEndpoints({
           patchResult.undo();
         }
       },
-
-      // invalidatesTags: (result, error, { id }) => [
-      //   { type: "Books", id },
-      //   "Books",
-      // ],
+      invalidatesTags: (result, error, { id }) => [
+        { type: "Books", id },
+        "Books",
+        "BorrowSummary",
+      ],
     }),
   }),
 });
