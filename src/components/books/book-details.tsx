@@ -15,7 +15,6 @@ export default function BookDetails() {
   const { title, author, genre, isbn, description, copies, available } =
     book?.data || {};
 
-  console.log("Book Details:", book, error);
   let content = null;
 
   if (isLoading) {

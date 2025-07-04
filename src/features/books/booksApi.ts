@@ -27,13 +27,24 @@ export interface IBookResponseData {
   data: IBooks;
   success: boolean;
   message: string;
+  pagination?: {
+    currentPage: number;
+    totalPages: number;
+    totalBooks: number;
+    limit: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
 }
 
 export const booksApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
-    getBooks: builder.query<IBookResponseData, void>({
-      query: () => {
-        return `/api/books`;
+    getBooks: builder.query<
+      IBookResponseData,
+      { page: number; limit: number; sortBy: string; sortOrder: string }
+    >({
+      query: ({ page, limit, sortBy, sortOrder }) => {
+        return `/api/books?page=${page}&limit=${limit}&sortBy=${sortBy}&sort=${sortOrder}`;
       },
       providesTags: ["Books"],
     }),
@@ -63,16 +74,29 @@ export const booksApi = apiSlice.injectEndpoints({
         "Books",
       ],
     }),
-    deleteBook: builder.mutation<IBookResponseData, string>({
-      query: (bookId) => ({
-        url: `/api/books/${bookId}`,
+    deleteBook: builder.mutation<
+      void,
+      {
+        id: string;
+        queryArgs: {
+          page: number;
+          limit: number;
+          sortBy: string;
+          sortOrder: string;
+        };
+      }
+    >({
+      query: ({ id }) => ({
+        url: `/api/books/${id}`,
         method: "DELETE",
       }),
-      // Optimistic update to remove book from cache
-      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+
+      async onQueryStarted({ id, queryArgs }, { dispatch, queryFulfilled }) {
+        // Optimistically remove the book from the cache
         const patchResult = dispatch(
-          booksApi.util.updateQueryData("getBooks", undefined, (draft) => {
-            draft.data = draft.data.filter((book) => book._id != arg);
+          booksApi.util.updateQueryData("getBooks", queryArgs, (draft) => {
+            console.log("Optimistically removing book with id:", id);
+            draft.data = draft.data.filter((book) => book._id !== id);
           })
         );
 
@@ -82,6 +106,11 @@ export const booksApi = apiSlice.injectEndpoints({
           patchResult.undo();
         }
       },
+
+      // invalidatesTags: (result, error, { id }) => [
+      //   { type: "Books", id },
+      //   "Books",
+      // ],
     }),
   }),
 });
