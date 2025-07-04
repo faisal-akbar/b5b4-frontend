@@ -64,4 +64,4 @@ You can access the live UI at [https://b5b4-frontend.vercel.app/](https://b5b4-f
   - `/create-book`: Form to create a new book with validation
   - `/edit-book/:id`: Form to edit an existing book with validation
   - `/borrow/:bookId`: Delete a book
-  - `/borrow-summary`: Summary of borrowed books with client side pagination and sorting
+  - `/borrow-summary`: Summary of borrowed books with client side sorting
