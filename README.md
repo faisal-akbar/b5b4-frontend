@@ -2,9 +2,9 @@
 
 This project is a simple library management UI built using React, TypeScript, and Redux Toolkit Query. It provides a user-friendly interface for managing books and borrow records.
 
-### Live API Entry Point
+### Live UI
 
-You can access the live API at [https://b5b4-frontend.vercel.app/](https://b5b4-frontend.vercel.app/).
+You can access the live UI at [https://b5b4-frontend.vercel.app/](https://b5b4-frontend.vercel.app/).
 
 ### Features:
 
@@ -56,7 +56,7 @@ You can access the live API at [https://b5b4-frontend.vercel.app/](https://b5b4-
    ```
 6. The React app will be running on `http://localhost:5173/`.
 
-### API Endpoints
+### Route
 
 - **Books**
   - `/` or `/books`: List of all books in table format with server side pagination, sorting and action for view details, edit, and delete and borrow book
